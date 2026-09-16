@@ -1,0 +1,24 @@
+name: container-hub
+
+services:
+  portainer:
+    image: "${PORTAINER_IMAGE:?PORTAINER_IMAGE is required}"
+    restart: unless-stopped
+
+    command:
+      - --sslcert
+      - /certs/portainer.crt
+      - --sslkey
+      - /certs/portainer.key
+
+    ports:
+      - "127.0.0.1:9443:9443"
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+      - ./secrets/portainer.crt:/certs/portainer.crt:ro
+      - ./secrets/portainer.key:/certs/portainer.key:ro
+
+volumes:
+  portainer_data:
