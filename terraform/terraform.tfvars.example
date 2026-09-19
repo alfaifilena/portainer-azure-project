@@ -1,0 +1,9 @@
+subscription_id     = "YOUR_SUBSCRIPTION_ID"
+location            = "eastus"
+vm_size             = "Standard_B2s"
+admin_username       = "azureadmin"
+ssh_public_key_path  = "C:/Users/YOUR_USERNAME/.ssh/portainer_azure.pub"
+
+admin_cidrs = [
+  "YOUR_PUBLIC_IP/32"
+]
