@@ -1,0 +1,21 @@
+services:
+  dashboard:
+    build:
+      context: ./dashboard
+    image: container-hub-dashboard:dev
+    restart: unless-stopped
+
+    environment:
+      REPORT_URL: http://ai-monitor:8090/report
+
+    ports:
+      - "127.0.0.1:8501:8501"
+
+    security_opt:
+      - no-new-privileges:true
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"

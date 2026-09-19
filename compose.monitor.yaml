@@ -1,0 +1,51 @@
+services:
+  ai-monitor:
+    build:
+      context: ./ai-monitor
+    image: container-hub-ai-monitor:dev
+    restart: unless-stopped
+
+    environment:
+      POLL_INTERVAL_SECONDS: "30"
+      OPENROUTER_KEY_FILE: /run/secrets/openrouter_api_key
+      AI_CACHE_SECONDS: "900"
+      AI_MAX_REQUESTS_PER_RUN: "10"
+
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+    volumes:
+      - type: bind
+        source: ./ai-monitor/config.docker.json
+        target: /app/ai-monitor/config.json
+        read_only: true
+        bind:
+          create_host_path: false
+
+      - type: bind
+        source: ./secrets/portainer_api_token
+        target: /run/secrets/portainer_api_token
+        read_only: true
+        bind:
+          create_host_path: false
+
+      - type: bind
+        source: ./secrets/portainer.crt
+        target: /run/secrets/portainer.crt
+        read_only: true
+        bind:
+          create_host_path: false
+
+      - type: bind
+        source: ./secrets/openrouter_api_key
+        target: /run/secrets/openrouter_api_key
+        read_only: true
+        bind:
+          create_host_path: false

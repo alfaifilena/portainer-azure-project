@@ -48,3 +48,6 @@ secrets/
 backups/
 *.before-edit*
 *.before-tls*
+data/
+__pycache__/
+*.pyc
