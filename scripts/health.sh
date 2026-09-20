@@ -1,8 +1,8 @@
-
+#!/bin/bash
 # Description: Health check script for Docker service, Portainer container, 
 #              and port responsiveness.
 
-#!/bin/bash
+
 echo "=== Starting Portainer Health Check ==="
 
 # 1. Check if the Docker service is active and running
