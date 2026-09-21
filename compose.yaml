@@ -2,6 +2,7 @@ name: container-hub
 
 services:
   portainer:
+    container_name: portainer
     image: "${PORTAINER_IMAGE:?PORTAINER_IMAGE is required}"
     restart: unless-stopped
 
