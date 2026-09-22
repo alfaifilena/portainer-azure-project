@@ -1,44 +1,27 @@
 #!/bin/bash
 
-# Description: Script to restore Portainer backup on a clean target safely.
-
-
-# Check if backup file path is provided as an argument
-if [ -z "$1" ]; then
-    echo "[ERROR] No backup file path specified!"
-    echo "Usage: $0 /path/to/portainer_backup_YYYYMMDD_HHMMSS.tar.gz"
-    exit 1
-fi
-
 BACKUP_FILE=$1
+DATA_DIR="/mnt/portainer-data"
 
-# 1. Verify if the backup file exists
-if [ ! -f "$BACKUP_FILE" ]; then
-    echo "[ERROR] Backup file not found at: $BACKUP_FILE"
+if [ -z "$BACKUP_FILE" ]; then
+    echo "Usage: sudo bash scripts/restore.sh /path/to/backup.tar.gz"
     exit 1
 fi
 
-echo "=== Starting Portainer Restore Process ==="
+echo "=== Starting Data Restoration to the Persistent Disk ==="
 
-# 2. Check if Portainer container or volume already exists (Safety check for clean target)
-if [ "$(docker ps -a -q -f name=portainer)" ] || [ -d "/var/lib/docker/volumes/portainer_data" ]; then
-    echo "[WARNING] Existing Portainer container or data volume detected!"
-    echo "[ERROR] Restore aborted to prevent overwriting existing data. Please run on a clean target."
-    exit 1
-fi
+# Stop services temporarily to ensure file integrity during restore
+sudo systemctl stop docker
+sudo systemctl stop containerd
 
-echo "[INFO] Target environment verified as clean. Proceeding with restore..."
+# Clear current contents and extract the backup directly onto the persistent disk
+sudo rm -rf "$DATA_DIR"/*
+sudo tar -xzf "$BACKUP_FILE" -C "$(dirname "$DATA_DIR")"
 
-# 3. Create the data volume and extract the backup archive
-sudo mkdir -p /var/lib/docker/volumes/portainer_data
-sudo tar -xzf "$BACKUP_FILE" -C /var/lib/docker/volumes/
+echo "Data successfully restored to $DATA_DIR"
 
-# 4. Verify extraction success
-if [ $? -eq 0 ]; then
-    echo "[SUCCESS] Portainer backup restored successfully from: $BACKUP_FILE"
-else
-    echo "[ERROR] Failed to extract and restore the backup archive."
-    exit 1
-fi
+# Restart services with the restored data
+sudo systemctl start containerd
+sudo systemctl start docker
 
-echo "=== Restore Process Completed ==="
+echo "=== Services are now running with the restored data ==="
