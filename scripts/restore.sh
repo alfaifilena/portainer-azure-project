@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+umask 077
+
 DATA_MOUNT="${DATA_MOUNT:-/srv/portainer-data}"
 PORTAINER_CONTAINER="${PORTAINER_CONTAINER:-portainer}"
 PORTAINER_VOLUME="${PORTAINER_VOLUME:-container-hub_portainer_data}"

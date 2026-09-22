@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+umask 077
+
 DATA_MOUNT="${DATA_MOUNT:-/srv/portainer-data}"
 BACKUP_DIR="${BACKUP_DIR:-$DATA_MOUNT/backups}"
 
@@ -106,6 +108,8 @@ tar \
   -czf "$ARCHIVE" \
   -C "$BACKUP_DIR" \
   "$(basename "$BACKUP_ROOT")"
+
+  chmod 600 "$ARCHIVE"
 
 rm -rf "$BACKUP_ROOT"
 
