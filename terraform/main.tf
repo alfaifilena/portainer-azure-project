@@ -158,7 +158,6 @@ resource "azurerm_managed_disk" "portainer_data" {
 resource "azurerm_virtual_machine_data_disk_attachment" "portainer_data" {
   managed_disk_id    = azurerm_managed_disk.portainer_data.id
   virtual_machine_id = azurerm_linux_virtual_machine.portainer.id
-
-  lun     = 0
-  caching = "None"
+  lun                = 0
+  caching            = "None"
 }
