@@ -65,6 +65,8 @@ resource "azurerm_public_ip" "portainer" {
   allocation_method = "Static"
   sku               = "Standard"
 
+  domain_name_label = "portainer-container-hub"
+
   tags = {
     project = "CC-RCP-12"
   }
@@ -134,4 +136,29 @@ resource "azurerm_linux_virtual_machine" "portainer" {
     application = "Portainer"
     environment = "internal"
   }
+}
+
+# Create a persistent managed data disk for Docker and Portainer data
+resource "azurerm_managed_disk" "portainer_data" {
+  name                 = "disk-portainer-data"
+  location             = azurerm_resource_group.portainer.location
+  resource_group_name  = azurerm_resource_group.portainer.name
+  storage_account_type = "StandardSSD_LRS"
+  create_option        = "Empty"
+  disk_size_gb         = 32
+
+  tags = {
+    project     = "CC-RCP-12"
+    application = "Portainer"
+    purpose     = "persistent-data"
+  }
+}
+
+# Attach the persistent data disk to the Portainer VM
+resource "azurerm_virtual_machine_data_disk_attachment" "portainer_data" {
+  managed_disk_id    = azurerm_managed_disk.portainer_data.id
+  virtual_machine_id = azurerm_linux_virtual_machine.portainer.id
+
+  lun     = 0
+  caching = "None"
 }
