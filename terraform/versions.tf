@@ -6,6 +6,11 @@ terraform {
       source  = "hashicorp/azurerm"
       version = "~> 5.4"
     }
+
+    azuread = {
+      source  = "hashicorp/azuread"
+      version = "~> 3.0"
+    }
   }
 }
 
@@ -14,3 +19,5 @@ provider "azurerm" {
 
   subscription_id = var.subscription_id
 }
+
+provider "azuread" {}

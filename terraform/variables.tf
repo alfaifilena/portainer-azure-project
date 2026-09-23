@@ -65,3 +65,15 @@ variable "admin_cidrs" {
     error_message = "Each admin CIDR must be a valid IPv4 address using /32, for example 203.0.113.10/32."
   }
 }
+
+variable "portainer_admin_upns" {
+  description = "Existing Microsoft Entra admin UPNs"
+  type        = list(string)
+  default     = []
+}
+
+variable "portainer_admin_guest_emails" {
+  description = "External admin emails to invite as guests"
+  type        = list(string)
+  default     = []
+}

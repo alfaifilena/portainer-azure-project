@@ -51,6 +51,55 @@ resource "azurerm_network_security_group" "portainer" {
     destination_address_prefix = "*"
   }
 
+  security_rule {
+    name                       = "Allow-HTTP"
+    priority                   = 200
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "80"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "Allow-HTTPS"
+    priority                   = 210
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "Allow-Portainer-Edge"
+    priority                   = 220
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "8000"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+
+  # Allow SSH access from Point-to-Site VPN clients.
+  security_rule {
+    name                       = "Allow-SSH-From-P2S-VPN"
+    priority                   = 110
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "22"
+    source_address_prefix      = "172.16.100.0/24"
+    destination_address_prefix = "*"
+  }
+
   tags = {
     project = "CC-RCP-12"
   }
@@ -136,6 +185,11 @@ resource "azurerm_linux_virtual_machine" "portainer" {
     application = "Portainer"
     environment = "internal"
   }
+
+  identity {
+    type = "SystemAssigned"
+  }
+
 }
 
 # Create a persistent managed data disk for Docker and Portainer data
@@ -160,4 +214,14 @@ resource "azurerm_virtual_machine_data_disk_attachment" "portainer_data" {
   virtual_machine_id = azurerm_linux_virtual_machine.portainer.id
   lun                = 0
   caching            = "None"
+}
+
+# Dedicated subnet required by Azure VPN Gateway.
+resource "azurerm_subnet" "gateway" {
+  name                 = "GatewaySubnet"
+  resource_group_name  = azurerm_resource_group.portainer.name
+  virtual_network_name = azurerm_virtual_network.portainer.name
+
+  # Separate address range reserved for the VPN gateway.
+  address_prefixes = ["10.10.2.0/27"]
 }
