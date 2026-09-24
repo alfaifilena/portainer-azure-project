@@ -51,21 +51,6 @@ variable "ssh_public_key_path" {
   }
 }
 
-variable "admin_cidrs" {
-  description = "Public IPv4 addresses allowed to connect through SSH, in /32 CIDR format"
-  type        = list(string)
-
-  validation {
-    condition = length(var.admin_cidrs) > 0 && alltrue([
-      for cidr in var.admin_cidrs :
-      can(cidrhost(cidr, 0)) &&
-      can(regex("^([0-9]{1,3}\\.){3}[0-9]{1,3}/32$", cidr))
-    ])
-
-    error_message = "Each admin CIDR must be a valid IPv4 address using /32, for example 203.0.113.10/32."
-  }
-}
-
 variable "portainer_admin_upns" {
   description = "Existing Microsoft Entra admin UPNs"
   type        = list(string)

@@ -1,4 +1,4 @@
-# Display the public IP address used to connect to the VM
+# Display the public IP address used by Portainer services and DNS
 output "public_ip" {
   description = "Public IP address of the Portainer VM"
   value       = azurerm_public_ip.portainer.ip_address
@@ -10,14 +10,7 @@ output "private_ip" {
   value       = azurerm_network_interface.portainer.private_ip_address
 }
 
-# Generate the SSH command used to connect to the VM
-output "ssh_command" {
-  description = "SSH command to connect to the Portainer VM"
-  value       = "ssh ${var.admin_username}@${azurerm_public_ip.portainer.ip_address}"
-}
-
-# Generate the SSH tunnel command for Portainer and the demo application
-output "ssh_tunnel_command" {
-  description = "SSH tunnel command for Portainer and the demo application"
-  value       = "ssh -N -L 9443:127.0.0.1:9443 -L 8081:127.0.0.1:8081 ${var.admin_username}@${azurerm_public_ip.portainer.ip_address}"
+# Entra ID SSH command for administrators connected through the Point-to-Site VPN.
+output "entra_ssh_command" {
+  value = "az ssh vm --resource-group ${azurerm_resource_group.portainer.name} --name ${azurerm_linux_virtual_machine.portainer.name} --prefer-private-ip"
 }

@@ -38,19 +38,6 @@ resource "azurerm_network_security_group" "portainer" {
   location            = azurerm_resource_group.portainer.location
   resource_group_name = azurerm_resource_group.portainer.name
 
-  # Allow SSH access only from approved administrator public IP addresses
-  security_rule {
-    name                       = "Allow-SSH-From-Admins"
-    priority                   = 100
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "22"
-    source_address_prefixes    = var.admin_cidrs
-    destination_address_prefix = "*"
-  }
-
   security_rule {
     name                       = "Allow-HTTP"
     priority                   = 200

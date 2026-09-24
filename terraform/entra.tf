@@ -30,7 +30,7 @@ resource "azurerm_virtual_machine_extension" "aad_ssh_login" {
 }
 
 resource "azurerm_role_assignment" "portainer_admin_vm_login" {
-  scope                = azurerm_linux_virtual_machine.portainer.id
+  scope                = azurerm_resource_group.portainer.id
   role_definition_name = "Virtual Machine Administrator Login"
   principal_id         = azuread_group.portainer_admins.object_id
   principal_type       = "Group"
