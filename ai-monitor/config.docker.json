@@ -1,0 +1,16 @@
+{
+  "portainer_url": "https://portainer:9443",
+  "environment_ids": [],
+  "token_file": "/run/secrets/portainer_api_token",
+  "certificate_file": "/run/secrets/portainer.crt",
+  "container_filters": {},
+  "log_tail": 100,
+  "log_window_seconds": 300,
+  "poll_seconds": 30,
+  "ai_interval_seconds": 60,
+  "ai_daily_requests": 100,
+  "analysis_user_daily_requests": 10,
+  "retention_days": 30,
+  "model": "openrouter/free"
+}
+

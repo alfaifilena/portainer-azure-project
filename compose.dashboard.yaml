@@ -1,0 +1,23 @@
+services:
+  dashboard:
+    build: ./dashboard
+    image: container-hub-dashboard:current
+    restart: unless-stopped
+    environment:
+      MONITOR_API_URL: http://ai-monitor:8090
+    ports: ["127.0.0.1:8501:8501"]
+    networks: [monitor]
+    depends_on:
+      ai-monitor:
+        condition: service_healthy
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501/ai/_stcore/health',timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: json-file
+      options: {max-size: 5m, max-file: "2"}
+

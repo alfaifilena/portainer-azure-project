@@ -1,0 +1,5 @@
+# Optional: disable paid/free AI requests while validating fault detection.
+services:
+  ai-monitor:
+    environment:
+      AI_ENABLED: "false"
