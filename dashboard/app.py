@@ -90,7 +90,7 @@ if not st.session_state.get("token"):
             with st.form("sign_in", clear_on_submit=True):
                 st.subheader("Sign in")
                 st.caption(
-                    "Use your Portainer account "
+                    "Sign in with a Portainer administrator account "
                 )
 
                 username = st.text_input(
