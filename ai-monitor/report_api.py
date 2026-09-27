@@ -42,6 +42,10 @@ class API:
             if error.code in (400, 401, 403, 404):
                 raise APIError(401, "Portainer sign-in failed.") from None
             raise APIError(503, "Portainer is unavailable.") from None
+
+        if user.get("Role") != 1:
+            raise APIError(403, "Only Portainer administrators can access the AI workspace.")
+
         token = secrets.token_urlsafe(32)
         session = {"jwt": jwt, "uid": user["Id"], "role": user.get("Role"), "expires": min(expires, now + 3600)}
         with self.lock:
@@ -66,7 +70,7 @@ class API:
             raise APIError(503, "Cannot verify your Portainer permissions.") from None
         if user["Id"] != session["uid"]:
             raise APIError(401, "Identity mismatch.")
-        if user.get("Role") != session["role"]:
+        if user.get("Role") != 1 or user.get("Role") != session["role"]:
             with self.lock:
                 self.sessions.pop(token, None)
             raise APIError(401, "Your Portainer role changed. Sign in again.")

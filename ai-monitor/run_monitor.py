@@ -49,7 +49,6 @@ class MonitorService:
                         self.store.notice(eid, cid, "rule", finding["category"],
                             {"container_name": container["name"], **finding},
                             [finding["rule"], finding.get("facts", {})])
-                    self.queue_detection(eid, container, now)
                 self.store.put(f"report:{eid}", report)
             except Exception:
                 self.store.put(f"report:{eid}", {"checked_at": utcnow(), "environment_id": eid,
