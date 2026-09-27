@@ -8,6 +8,8 @@ services:
       MONITOR_CONFIG: /config/monitor.json
       MONITOR_DB: /data/monitor.sqlite3
       OPENROUTER_KEY_FILE: /run/secrets/openrouter_api_key
+      TELEGRAM_TOKEN_FILE: /run/secrets/telegram_bot_token
+      TELEGRAM_CHAT_FILE: /run/secrets/telegram_chat_id
     read_only: true
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
@@ -16,6 +18,8 @@ services:
       - /srv/portainer-data/config/secrets/portainer_api_token:/run/secrets/portainer_api_token:ro
       - /srv/portainer-data/config/secrets/openrouter_api_key:/run/secrets/openrouter_api_key:ro
       - /srv/portainer-data/config/secrets/portainer.crt:/run/secrets/portainer.crt:ro
+      - /srv/portainer-data/config/secrets/telegram_bot_token:/run/secrets/telegram_bot_token:ro
+      - /srv/portainer-data/config/secrets/telegram_chat_id:/run/secrets/telegram_chat_id:ro
       - /srv/portainer-data/ai-monitor:/data
     networks: [monitor, portainer]
     healthcheck:

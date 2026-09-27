@@ -7,10 +7,8 @@
   "log_tail": 100,
   "log_window_seconds": 300,
   "poll_seconds": 30,
-  "ai_interval_seconds": 60,
-  "ai_daily_requests": 100,
+  "ai_daily_requests": 300,
   "analysis_user_daily_requests": 10,
   "retention_days": 30,
   "model": "openrouter/free"
 }
-

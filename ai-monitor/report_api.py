@@ -8,18 +8,86 @@ from collections import defaultdict, deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.error import HTTPError
 from urllib.parse import parse_qs, urlsplit
-from run_monitor import observations
-
+from run_monitor import observations, fresh_report
+from ai_client import AnalysisUnavailable
 class APIError(Exception):
     def __init__(self, status, message):
         self.status, self.message = status, message
 
 class API:
     def __init__(self, service):
-        self.service, self.store, self.portainer = service, service.store, service.portainer
+        self.service = service
+        self.store = service.store
+        self.portainer = service.portainer
         self.sessions = {}
         self.attempts = defaultdict(deque)
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
+        self.service.session_api = self
+
+    IDLE_SECONDS = 45
+
+    def live(self, session):
+        return (
+            session["expires"] > time.time()
+            and time.monotonic() < session["active_until"]
+        )
+
+    def revoke(self, token):
+        with self.lock:
+            self.sessions.pop(token, None)
+
+    def expire_sessions(self):
+        with self.lock:
+            for token, session in list(self.sessions.items()):
+                if not self.live(session):
+                    self.revoke(token)
+
+    def current(self, token, session):
+        if (
+            self.sessions.get(token) is not session
+            or not self.live(session)
+        ):
+            self.revoke(token)
+            raise APIError(
+                401,
+                "Your session expired. Sign in again.",
+            )
+
+    def job_session_live(self, job):
+        owner = job["payload"].get("_session_id")
+        with self.lock:
+            return any(
+                session["sid"] == owner and self.live(session)
+                for session in self.sessions.values()
+            )
+
+    def authorize_job(self, job):
+        owner = job["payload"].get("_session_id")
+
+        with self.lock:
+            token = next(
+                (
+                    token
+                    for token, session in self.sessions.items()
+                    if session["sid"] == owner
+                ),
+                None,
+            )
+
+        if token is None:
+            return False
+
+        try:
+            session, _ = self.identity(token)
+            allowed = self.scope(session, job["env"])
+
+            with self.lock:
+                self.current(token, session)
+                return job["cid"] in allowed
+
+        except Exception:
+            # Never send a provider request when access cannot be verified.
+            return False
 
     def login(self, body, address):
         username, password = body.get("username"), body.get("password")
@@ -44,12 +112,23 @@ class API:
             raise APIError(503, "Portainer is unavailable.") from None
 
         if user.get("Role") != 1:
-            raise APIError(403, "Only Portainer administrators can access the AI workspace.")
+            raise APIError(
+                403,
+                "Only Portainer administrators can access the AI workspace.",
+            )
 
         token = secrets.token_urlsafe(32)
-        session = {"jwt": jwt, "uid": user["Id"], "role": user.get("Role"), "expires": min(expires, now + 3600)}
+        session = {
+            "jwt": jwt,
+            "uid": user["Id"],
+            "role": user.get("Role"),
+            "expires": min(expires, now + 3600),
+            "sid": secrets.token_hex(16),
+            "active_until": time.monotonic() + self.IDLE_SECONDS,
+        }
+
         with self.lock:
-            self.sessions = {k: v for k, v in self.sessions.items() if v["expires"] > now}
+            self.expire_sessions()
             if len(self.sessions) >= 1000:
                 raise APIError(503, "Sign-in capacity reached. Try again later.")
             self.sessions[token] = session
@@ -58,22 +137,41 @@ class API:
     def identity(self, token):
         with self.lock:
             session = self.sessions.get(token)
-        if not session or session["expires"] <= time.time():
-            raise APIError(401, "Your session expired. Sign in again.")
+            if not session:
+                raise APIError(
+                    401,
+                    "Your session expired. Sign in again.",
+                )
+            self.current(token, session)
+
         try:
-            user = self.portainer.json(f"/api/users/{session['uid']}", jwt=session["jwt"])
+            user = self.portainer.json(
+                f"/api/users/{session['uid']}",
+                jwt=session["jwt"],
+            )
         except HTTPError as error:
             if error.code in (401, 403, 404):
-                with self.lock:
-                    self.sessions.pop(token, None)
-                raise APIError(401, "Your session is no longer authorized.") from None
-            raise APIError(503, "Cannot verify your Portainer permissions.") from None
-        if user["Id"] != session["uid"]:
-            raise APIError(401, "Identity mismatch.")
-        if user.get("Role") != 1 or user.get("Role") != session["role"]:
-            with self.lock:
-                self.sessions.pop(token, None)
-            raise APIError(401, "Your Portainer role changed. Sign in again.")
+                self.revoke(token)
+                raise APIError(
+                    401,
+                    "Your session is no longer authorized.",
+                ) from None
+
+            raise APIError(
+                503,
+                "Cannot verify your Portainer permissions.",
+            ) from None
+
+        if user.get("Id") != session["uid"] or user.get("Role") != 1:
+            self.revoke(token)
+            raise APIError(
+                401,
+                "Your Portainer identity or role changed. Sign in again.",
+            )
+
+        with self.lock:
+            self.current(token, session)
+
         return session, user
 
     def scope(self, session, eid):
@@ -90,8 +188,7 @@ class API:
         if path == "/login" and method == "POST":
             return self.login(body, address)
         if path == "/logout" and method == "POST":
-            with self.lock:
-                self.sessions.pop(token, None)
+            self.revoke(token)
             return {"ok": True}
         session, user = self.identity(token)
         parsed = urlsplit(path)
@@ -113,13 +210,19 @@ class API:
                 report = {"environment_id": eid, "collection_status": "starting", "containers": []}
             report["containers"] = [c for c in report.get("containers", []) if c["id"] in allowed]
             report["matched_containers"] = len(report["containers"])
-            for container in report["containers"]:
-                previous = self.store.get(f"detection:{eid}:{container['id']}", {})
-                job = self.store.job(previous.get("job", "")) if previous else None
-                container["ai_detection"] = self.public_job(job)
+
+            with self.lock:
+                self.current(token, session)
+
+                # Only a successful workspace refresh renews activity.
+                session["active_until"] = (
+                    time.monotonic() + self.IDLE_SECONDS
+                )
+
             # Global collection details may expose other environments; only return status.
             report["collector"] = self.store.get("collector", {"status": "starting"})
-            report["ai_status"] = self.store.get("ai_status", {"status": "waiting"})
+            report["ai_status"] = self.service.analysis_status()
+            report["telegram_status"] = {k: v for k, v in self.store.get("telegram_status", {"status": "not_configured"}).items() if not k.startswith("_")}
             report["notices"] = self.store.notices(eid, user["Id"], allowed)
             return report
         if parsed.path == "/notices/read" and method == "POST":
@@ -138,23 +241,27 @@ class API:
             if not isinstance(cid, str) or cid not in allowed:
                 raise APIError(403, "Container access denied.")
             report = self.store.get(f"report:{eid}", {})
-            try:
-                from datetime import datetime, timezone
-                age = (datetime.now(timezone.utc) - datetime.fromisoformat(report["checked_at"])).total_seconds()
-            except (KeyError, ValueError, TypeError):
-                age = 10000
-            if age > 150 or age < -10 or report.get("collection_status") not in ("ok", "partial"):
-                raise APIError(409, "Wait for a fresh monitoring sample before requesting analysis.")
+            if not fresh_report(report):
+                raise APIError(
+                    409,
+                    "Wait for a fresh monitoring sample before requesting analysis.",
+                )
             container = next((c for c in report.get("containers", []) if c["id"] == cid), None)
             if not container or container.get("collection_status") == "failed":
                 raise APIError(409, "No usable monitoring sample is available for this container.")
-            if not self.store.consume(f"user:{user['Id']}", self.service.config["analysis_user_daily_requests"]):
-                raise APIError(429, "Your daily analysis request limit has been reached.")
-            job = self.store.enqueue(eid, cid, "analysis", observations(container))
+            with self.lock:
+                self.current(token, session)
+
+                payload = {**observations(container), "_session_id": session["sid"]}
+                try:
+                    job = self.service.start_analysis(eid, cid, payload, user["Id"])
+                except AnalysisUnavailable as error:
+                    raise APIError(error.status, str(error)) from None
+
             return {"job_id": job}
         if parsed.path == "/job" and method == "GET":
             job = self.store.job(query.get("id", [""])[0])
-            if not job or job["env"] != eid or job["cid"] not in allowed:
+            if not job or job["kind"] != "analysis" or job["env"] != eid or job["cid"] not in allowed:
                 raise APIError(404, "Analysis not found.")
             return self.public_job(job)
         raise APIError(404, "Not found.")

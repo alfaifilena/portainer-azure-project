@@ -1,6 +1,7 @@
 """SQLite persistence. WAL files live beside the database on the data disk."""
 import hashlib
 import json
+import secrets
 import sqlite3
 import time
 from contextlib import contextmanager
@@ -30,10 +31,14 @@ class Store:
                 kind TEXT NOT NULL, payload TEXT NOT NULL, status TEXT NOT NULL,
                 result TEXT, error TEXT, created REAL NOT NULL, updated REAL NOT NULL);
             CREATE INDEX IF NOT EXISTS jobs_pending ON jobs(status,created);
+            CREATE TABLE IF NOT EXISTS telegram_alerts(
+                id TEXT PRIMARY KEY, message TEXT NOT NULL, created REAL NOT NULL,
+                last_sent REAL NOT NULL, attempts INTEGER NOT NULL, due REAL NOT NULL,
+                status TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS usage(day TEXT NOT NULL, scope TEXT NOT NULL,
                 count INTEGER NOT NULL, PRIMARY KEY(day,scope));
             """)
-            db.execute("UPDATE jobs SET status='interrupted',error='Service restarted; request analysis again.',updated=? WHERE status='running'", (time.time(),))
+            db.execute("UPDATE jobs SET status='interrupted',error='Service restarted; request analysis again.',updated=? WHERE status IN ('running','queued')", (time.time(),))
 
     @contextmanager
     def connect(self):
@@ -74,7 +79,7 @@ class Store:
         with self.connect() as db:
             rows = db.execute("""SELECT n.*,COALESCE(r.seen,0) AS seen FROM notices n
                 LEFT JOIN reads r ON r.notice=n.id AND r.uid=?
-                WHERE n.env=? ORDER BY n.updated DESC LIMIT 500""", (uid, env)).fetchall()
+                WHERE n.env=? AND n.kind='rule' ORDER BY n.updated DESC LIMIT 500""", (uid, env)).fetchall()
         return [{**dict(row), "body": json.loads(row["body"]), "unread": row["seen"] < row["updated"]}
                 for row in rows if row["cid"] in allowed_ids or admin]
 
@@ -83,20 +88,22 @@ class Store:
             db.executemany("INSERT OR REPLACE INTO reads VALUES(?,?,?)",
                            [(uid, nid, time.time()) for nid in notice_ids])
 
-    def enqueue(self, env, cid, kind, payload, ttl=900):
-        identity = fingerprint([env, cid, kind, payload])
+    def start_analysis(self, env, cid, payload, uid, user_limit, global_limit):
+        identity = secrets.token_hex(16)
         now = time.time()
+        day = time.strftime("%Y-%m-%d", time.gmtime(now))
+        budgets = [("global_ai", global_limit, "Daily AI request limit reached; resets at 00:00 UTC."),
+                   (f"user:{uid}", user_limit, "Your daily analysis request limit has been reached.")]
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
-            row = db.execute("SELECT * FROM jobs WHERE id=?", (identity,)).fetchone()
-            if row and (row["status"] in ("queued", "running") or
-                        row["status"] == "ready" and now - row["updated"] < ttl):
-                return identity
-            count = db.execute("SELECT COUNT(*) FROM jobs WHERE status IN ('queued','running')").fetchone()[0]
-            if count >= 100:
-                raise ValueError("AI queue is full. Try later.")
-            db.execute("INSERT OR REPLACE INTO jobs VALUES(?,?,?,?,?,?,?,?,?,?)",
-                       (identity, env, cid, kind, json.dumps(payload), "queued", None, None, now, now))
+            for scope, limit, message in budgets:
+                row = db.execute("SELECT count FROM usage WHERE day=? AND scope=?", (day, scope)).fetchone()
+                if row and row[0] >= limit:
+                    raise ValueError(message)
+            for scope, _, _ in budgets:
+                db.execute("INSERT INTO usage VALUES(?,?,1) ON CONFLICT(day,scope) DO UPDATE SET count=count+1", (day, scope))
+            db.execute("INSERT INTO jobs VALUES(?,?,?,?,?,?,?,?,?,?)",
+                       (identity, env, cid, "analysis", json.dumps(payload), "running", None, None, now, now))
         return identity
 
     def job(self, identity):
@@ -107,30 +114,10 @@ class Store:
         return {**dict(row), "payload": json.loads(row["payload"]),
                 "result": json.loads(row["result"]) if row["result"] else None}
 
-    def claim(self):
-        with self.connect() as db:
-            db.execute("BEGIN IMMEDIATE")
-            row = db.execute("SELECT id FROM jobs WHERE status='queued' ORDER BY created LIMIT 1").fetchone()
-            if not row:
-                return None
-            db.execute("UPDATE jobs SET status='running',updated=? WHERE id=?", (time.time(), row["id"]))
-        return self.job(row["id"])
-
     def finish(self, identity, status, result=None, error=None):
         with self.connect() as db:
             db.execute("UPDATE jobs SET status=?,result=?,error=?,updated=? WHERE id=?",
                        (status, json.dumps(result) if result is not None else None, error, time.time(), identity))
-
-    def consume(self, scope, limit):
-        day = time.strftime("%Y-%m-%d", time.gmtime())
-        with self.connect() as db:
-            db.execute("BEGIN IMMEDIATE")
-            row = db.execute("SELECT count FROM usage WHERE day=? AND scope=?", (day, scope)).fetchone()
-            used = row[0] if row else 0
-            if used >= limit:
-                return False
-            db.execute("INSERT OR REPLACE INTO usage VALUES(?,?,?)", (day, scope, used + 1))
-        return True
 
     def prune(self, days):
         cutoff = time.time() - days * 86400
@@ -138,5 +125,6 @@ class Store:
             db.execute("DELETE FROM reads WHERE notice IN (SELECT id FROM notices WHERE updated<?)", (cutoff,))
             db.execute("DELETE FROM notices WHERE updated<?", (cutoff,))
             db.execute("DELETE FROM jobs WHERE updated<? AND status NOT IN ('queued','running')", (cutoff,))
+            db.execute("DELETE FROM telegram_alerts WHERE created<? AND status != 'pending'", (cutoff,))
             db.execute("DELETE FROM usage WHERE day<?", (time.strftime("%Y-%m-%d", time.gmtime(cutoff)),))
 

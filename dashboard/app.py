@@ -57,7 +57,7 @@ def timestamp(value):
 
 def show_analysis(job):
     status = job.get("status", "waiting")
-    if status in ("queued", "running"):
+    if status == "running":
         st.info("Analysis is " + status + ". This view refreshes automatically.", icon=":material/schedule:")
     elif status == "ready":
         result = job["result"]
@@ -257,7 +257,8 @@ def workspace():
                     notifications_area = st.container(width="content")
 
     st.space("small")
-    st.title("AI Dashboard")
+    st.title("Container monitoring")
+    st.caption("Rules monitor continuously. AI runs only when you select Analyze with AI.")
     try:
         account = api("/environments")
     except RequestError as error:
@@ -287,11 +288,14 @@ def workspace():
     fresh = age is not None and -10 <= age <= 150
     collector_ok = report.get("collector", {}).get("status") == "ok"
     with st.container(horizontal=True, vertical_alignment="center"):
-        ai_status = report.get("ai_status", {}).get("status", "waiting")
+        ai_status = report.get("ai_status", {}).get("status", "on_demand")
         st.badge(
             "AI · " + ai_status.replace("_", " "),
-            color="blue" if ai_status == "available" else "gray",
+            color="blue" if ai_status == "on_demand" else "gray",
         )
+        telegram_status = report.get("telegram_status", {}).get("status", "not_configured")
+        st.badge("Telegram · " + telegram_status.replace("_", " "),
+                 color="green" if telegram_status == "ready" else "gray")
         st.caption("Updated " + timestamp(report.get("checked_at")))
 
     with notifications_area:
@@ -308,7 +312,7 @@ def workspace():
                 with st.container(border=True):
                     st.text(notice["title"])
                     st.caption(notice["body"].get("container_name", "") + " · " + timestamp(notice["updated"]))
-                    st.caption(("Unread · " if notice["unread"] else "") + ("AI observation" if notice["kind"] == "ai" else "Rule match"))
+                    st.caption(("Unread · " if notice["unread"] else "") + "Rule match")
                     st.code("\n".join(notice["body"].get("evidence", [])), language="text")
     if not fresh and status != "starting":
         st.warning("Collection is stale or its clock is incorrect. Container values below may be out of date.")
@@ -353,7 +357,6 @@ def workspace():
             with st.container(horizontal=True):
                 st.caption("Restarts: " + str(container.get("restart_count", "—")))
                 st.caption("Collection: " + container.get("collection_status", "unknown"))
-                st.caption("AI detection: " + container.get("ai_detection", {}).get("status", "waiting"))
             if container.get("collection_status") != "ok":
                 st.warning(container.get("collection_error") or "Some data could not be collected.")
                 for warning in container.get("collection_warnings", []):
@@ -365,13 +368,6 @@ def workspace():
                 for finding in findings:
                     st.text(finding["category"])
                     st.code("\n".join(finding["evidence"]), language="text")
-                detection = container.get("ai_detection", {})
-                if detection.get("status") == "ready":
-                    for issue in detection["result"]["output"].get("issues", []):
-                        st.text("AI observation: " + issue["category"])
-                        st.code("\n".join(issue["evidence"]), language="text")
-                if detection.get("error"):
-                    st.caption(detection["error"])
                 with st.expander("Recent log sample"):
                     st.code("\n".join(container.get("log_sample") or []) or "No logs in this sample.", language="text")
             jobkey = f"analysis:{eid}:{cid}"
