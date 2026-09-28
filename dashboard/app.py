@@ -401,10 +401,13 @@ def restart_sidebar():
             st.session_state[cachekey] = api(f"/restart-settings?environment={eid}")["containers"]
             for item in st.session_state[cachekey]:
                 st.session_state[f"restart_enabled:{eid}:{item['id']}"] = (
+                    item.get("keep_running", False) if item.get("selection_saved") else
                     item.get("policy", {}).get("Name", "no") != "no")
         items = st.session_state[cachekey]
-        st.caption("Checked: restart automatically. Manual stops are respected. Saving does not start stopped containers.")
-        st.caption("Save uses unless-stopped for checked containers and no auto-restart for unchecked containers.")
+        st.caption("Checked: keep running, even after a manual Stop. Selected stopped containers will also be started.")
+        st.caption("Uncheck and Save before stopping a container you want to keep off. Recovery runs each monitoring cycle (normally about 30 seconds).")
+        if any(not item.get("selection_saved") for item in items if not item.get("error")):
+            st.info("Press Save to activate keep-running for your selection.")
         if not items:
             st.info("No containers in this environment.")
             return
@@ -426,6 +429,8 @@ def restart_sidebar():
                 item = byid[saved["id"]]
                 if saved["ok"]:
                     item["policy"] = saved["policy"]
+                    item["selection_saved"] = True
+                    item["keep_running"] = next(c["enabled"] for c in changes if c["id"] == saved["id"])
                     for warning in saved.get("warnings", []):
                         st.warning(item["name"] + ": " + warning)
                 else:

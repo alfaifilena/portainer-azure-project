@@ -12,6 +12,7 @@ from settings import load_settings
 from storage import Store
 from telegram_alerts import TelegramAlerts
 from lifecycle import observe as observe_lifecycle
+from restart_control import recover
 
 
 def utcnow():
@@ -58,6 +59,7 @@ class MonitorService:
         self.stop = threading.Event()
         self.session_api = None
         self.ai_lock = threading.Lock()
+        self.recovery_lock = threading.Lock()
         self.ai_busy = False
         self.telegram = TelegramAlerts(store, config)
 
@@ -101,6 +103,15 @@ class MonitorService:
                     except Exception:
                         self.store.put("telegram_status", {"status": "unavailable",
                             "message": "Lifecycle notification failed; monitoring continues."})
+
+                    with self.recovery_lock:
+                        recovered = recover(self.portainer, self.store, eid, container, now)
+                    if recovered:
+                        try:
+                            observe_lifecycle(self.store, self.telegram, eid, env["Name"], container, time.time())
+                        except Exception:
+                            self.store.put("telegram_status", {"status": "unavailable",
+                                "message": "Recovery notification failed; monitoring continues."})
 
                     for finding in container.get("findings") or []:
                         self.store.notice(

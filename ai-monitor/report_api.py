@@ -208,7 +208,8 @@ class API:
             from restart_control import settings, save
             if method == "POST":
                 try:
-                    return save(self.portainer, eid, body.get("changes"), allowed, session["jwt"])
+                    with self.service.recovery_lock:
+                        return save(self.portainer, eid, body.get("changes"), allowed, session["jwt"], self.store)
                 except ValueError as error:
                     raise APIError(400, str(error)) from None
             containers = self.portainer.containers(eid, jwt=session["jwt"])
@@ -219,7 +220,11 @@ class API:
                     continue
                 name = (container.get("Names") or [cid[:12]])[0].lstrip("/")
                 try:
-                    items.append({"name": name, **settings(self.portainer, eid, cid, session["jwt"])})
+                    item = {"name": name, **settings(self.portainer, eid, cid, session["jwt"])}
+                    choice = self.store.get(f"keep_running:{eid}:{cid}")
+                    item["keep_running"] = bool(choice and choice.get("enabled"))
+                    item["selection_saved"] = choice is not None
+                    items.append(item)
                 except (HTTPError, OSError, ValueError, KeyError):
                     items.append({"id": cid, "name": name, "error": "Settings unavailable."})
             return {"containers": items}

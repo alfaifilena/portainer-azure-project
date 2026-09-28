@@ -31,7 +31,9 @@ class Portainer:
             raise ValueError("Authentication required.")
         data = None
         if body is not None:
-            if path != "/api/auth":
+            is_service_start = (service and not jwt and body == {} and re.fullmatch(
+                r"/api/endpoints/[1-9][0-9]*/docker/containers/[a-f0-9]{64}/start", path))
+            if path != "/api/auth" and not is_service_start:
                 if (not jwt or service or not re.fullmatch(
                         r"/api/endpoints/[1-9][0-9]*/docker/containers/[a-f0-9]{64}/update", path)
                         or set(body) != {"RestartPolicy"}):
@@ -86,15 +88,23 @@ class Portainer:
                 or (name != "on-failure" and retries != 0)):
             raise ValueError("Invalid restart policy.")
 
-    def restart_settings(self, environment, cid, *, jwt):
+    def restart_settings(self, environment, cid, *, jwt=None, service=False):
         if type(environment) is not int or environment < 1 or not re.fullmatch(r"[a-f0-9]{64}", cid):
             raise ValueError("Invalid container identifier.")
-        details = self.json(f"/api/endpoints/{environment}/docker/containers/{cid}/json", jwt=jwt)
+        details = self.json(f"/api/endpoints/{environment}/docker/containers/{cid}/json", jwt=jwt, service=service)
         policy = details["HostConfig"]["RestartPolicy"]
         return {"policy": {"Name": policy.get("Name") or "no",
                            "MaximumRetryCount": policy.get("MaximumRetryCount", 0)},
                 "state": details["State"]["Status"],
+                "restart_count": details.get("RestartCount", 0),
+                "started_at": details["State"].get("StartedAt"),
+                "finished_at": details["State"].get("FinishedAt"),
                 "managed_by_swarm": bool((details.get("Config", {}).get("Labels") or {}).get("com.docker.swarm.service.id"))}
+
+    def start_container(self, environment, cid):
+        # Only the persisted keep-running reconciler calls this service write.
+        return self.request(f"/api/endpoints/{environment}/docker/containers/{cid}/start",
+                            service=True, body={})
 
     def update_restart_policy(self, environment, cid, policy, *, jwt):
         self.validate_restart_policy(policy)

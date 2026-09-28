@@ -9,12 +9,43 @@ from urllib.error import HTTPError
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from lifecycle import observe
 from portainer import Portainer
-from restart_control import save
+from restart_control import save, recover
 from storage import Store
 from telegram_alerts import TelegramAlerts
 
 
 class RestartTests(unittest.TestCase):
+    def test_keep_running_manual_stop_and_disable_persist(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Store(Path(tmp) / "monitor.db")
+            client = Mock()
+            client.validate_restart_policy = Portainer.validate_restart_policy
+            policy = {"Name": "unless-stopped", "MaximumRetryCount": 0}
+            live = {"policy": policy, "state": "exited", "managed_by_swarm": False,
+                    "started_at": "old", "finished_at": "stop", "restart_count": 0}
+            client.restart_settings.side_effect = lambda *args, **kw: dict(live)
+            def start(*args):
+                live.update(state="running", started_at="new")
+            client.start_container.side_effect = start
+            c = {"id": "a", "name": "demo", "state": "exited", "finished_at": "stop"}
+            self.assertFalse(recover(client, store, 1, c, time.time()))
+            choice = {"id": "a", "enabled": True, "expected_policy": policy}
+            self.assertTrue(save(client, 1, [choice], {"a"}, "user-jwt", store)["results"][0]["ok"])
+            restarted_store = Store(Path(tmp) / "monitor.db")
+            self.assertTrue(recover(client, restarted_store, 1, c, time.time()))
+            self.assertEqual(c["state"], "running")
+            client.start_container.assert_called_once_with(1, "a")
+            live["state"] = c["state"] = "exited"
+            self.assertFalse(recover(client, store, 1, c, time.time()))
+            choice["enabled"] = False
+            def update(eid, cid, new_policy, **kwargs):
+                live["policy"] = new_policy
+                return {}
+            client.update_restart_policy.side_effect = update
+            self.assertTrue(save(client, 1, [choice], {"a"}, "user-jwt", store)["results"][0]["ok"])
+            self.assertFalse(recover(client, store, 1, c, time.time() + 60))
+            client.start_container.assert_called_once()
+
     def test_save_scoped_partial_and_never_starts(self):
         client = Mock()
         client.validate_restart_policy = Portainer.validate_restart_policy
