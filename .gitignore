@@ -40,3 +40,6 @@ backups/
 
 # Terraform plan files
 *.tfplan
+
+# Local final submission package
+submission/
