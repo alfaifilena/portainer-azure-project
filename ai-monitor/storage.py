@@ -79,7 +79,7 @@ class Store:
         with self.connect() as db:
             rows = db.execute("""SELECT n.*,COALESCE(r.seen,0) AS seen FROM notices n
                 LEFT JOIN reads r ON r.notice=n.id AND r.uid=?
-                WHERE n.env=? AND n.kind='rule' ORDER BY n.updated DESC LIMIT 500""", (uid, env)).fetchall()
+                WHERE n.env=? AND n.kind IN ('rule','lifecycle') ORDER BY n.updated DESC LIMIT 500""", (uid, env)).fetchall()
         return [{**dict(row), "body": json.loads(row["body"]), "unread": row["seen"] < row["updated"]}
                 for row in rows if row["cid"] in allowed_ids or admin]
 

@@ -204,6 +204,25 @@ class API:
         except (TypeError, ValueError):
             raise APIError(400, "Select an environment.") from None
         allowed = self.scope(session, eid)
+        if parsed.path == "/restart-settings" and method in ("GET", "POST"):
+            from restart_control import settings, save
+            if method == "POST":
+                try:
+                    return save(self.portainer, eid, body.get("changes"), allowed, session["jwt"])
+                except ValueError as error:
+                    raise APIError(400, str(error)) from None
+            containers = self.portainer.containers(eid, jwt=session["jwt"])
+            items = []
+            for container in containers:
+                cid = container["Id"]
+                if cid not in allowed:
+                    continue
+                name = (container.get("Names") or [cid[:12]])[0].lstrip("/")
+                try:
+                    items.append({"name": name, **settings(self.portainer, eid, cid, session["jwt"])})
+                except (HTTPError, OSError, ValueError, KeyError):
+                    items.append({"id": cid, "name": name, "error": "Settings unavailable."})
+            return {"containers": items}
         if parsed.path == "/report" and method == "GET":
             report = copy.deepcopy(self.store.get(f"report:{eid}"))
             if report is None:

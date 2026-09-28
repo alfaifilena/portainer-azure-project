@@ -312,7 +312,8 @@ def workspace():
                 with st.container(border=True):
                     st.text(notice["title"])
                     st.caption(notice["body"].get("container_name", "") + " · " + timestamp(notice["updated"]))
-                    st.caption(("Unread · " if notice["unread"] else "") + "Rule match")
+                    st.caption(("Unread · " if notice["unread"] else "") +
+                               ("Container lifecycle" if notice["kind"] == "lifecycle" else "Rule match"))
                     st.code("\n".join(notice["body"].get("evidence", [])), language="text")
     if not fresh and status != "starting":
         st.warning("Collection is stale or its clock is incorrect. Container values below may be out of date.")
@@ -384,5 +385,61 @@ def workspace():
                 except RequestError as error:
                     handle_error(error)
 
+@st.fragment
+def restart_sidebar():
+    st.subheader("Auto-restart", icon=":material/restart_alt:")
+    try:
+        envs = api("/environments")["environments"]
+        if not envs:
+            st.info("No Docker environments available.")
+            return
+        envmap = {env["id"]: env["name"] for env in envs}
+        eid = st.selectbox("Environment", list(envmap), format_func=envmap.get, key="restart_environment")
+        cachekey = f"restart_settings:{eid}"
+        reload_settings = st.button("Reload settings", key=f"reload_restart:{eid}")
+        if cachekey not in st.session_state or reload_settings:
+            st.session_state[cachekey] = api(f"/restart-settings?environment={eid}")["containers"]
+            for item in st.session_state[cachekey]:
+                st.session_state[f"restart_enabled:{eid}:{item['id']}"] = (
+                    item.get("policy", {}).get("Name", "no") != "no")
+        items = st.session_state[cachekey]
+        st.caption("Checked: restart automatically. Manual stops are respected. Saving does not start stopped containers.")
+        st.caption("Save uses unless-stopped for checked containers and no auto-restart for unchecked containers.")
+        if not items:
+            st.info("No containers in this environment.")
+            return
+        with st.form(f"restart_form:{eid}"):
+            changes = []
+            for item in items:
+                unavailable = bool(item.get("error") or item.get("managed_by_swarm"))
+                enabled = st.checkbox(item["name"], key=f"restart_enabled:{eid}:{item['id']}", disabled=unavailable)
+                st.caption(item.get("error") or ("Managed by Swarm" if item.get("managed_by_swarm") else
+                    f"{item['state']} · {item['policy']['Name']}"))
+                if not unavailable:
+                    changes.append({"id": item["id"], "enabled": enabled, "expected_policy": item["policy"]})
+            submitted = st.form_submit_button("Save", type="primary", disabled=not changes, width="stretch")
+        if submitted:
+            result = api(f"/restart-settings?environment={eid}", {"changes": changes})
+            byid = {item["id"]: item for item in items}
+            failures = 0
+            for saved in result["results"]:
+                item = byid[saved["id"]]
+                if saved["ok"]:
+                    item["policy"] = saved["policy"]
+                    for warning in saved.get("warnings", []):
+                        st.warning(item["name"] + ": " + warning)
+                else:
+                    failures += 1
+                    st.error(item["name"] + ": " + saved["message"])
+            if not failures:
+                st.success("Auto-restart settings saved.")
+            else:
+                st.warning("Some settings were not saved. Reload settings to check current values.")
+    except RequestError as error:
+        handle_error(error)
+
+
+with st.sidebar:
+    restart_sidebar()
 workspace()
 

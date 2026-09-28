@@ -12,6 +12,7 @@ class DashboardTests(unittest.TestCase):
     def setUp(self):
         self.calls = []
         self.busy = False
+        self.restart_saved = []
         self.report = {'checked_at':datetime.now(timezone.utc).isoformat(), 'collection_status':'ok',
             'collector':{'status':'ok'}, 'ai_status':{'status':'on_demand'},
             'telegram_status':{'status':'ready'}, 'notices':[],
@@ -27,6 +28,15 @@ class DashboardTests(unittest.TestCase):
             result = {'username':'tester','environments':[{'id':1,'name':'Test environment'}]}
         elif '/report?' in url:
             result = self.report
+        elif '/restart-settings?' in url:
+            if request.get_method() == 'POST':
+                self.restart_saved = json.loads(request.data)['changes']
+                result = {'results': [{'id': c['id'], 'ok': True, 'policy': {
+                    'Name': 'unless-stopped' if c['enabled'] else 'no', 'MaximumRetryCount': 0}}
+                    for c in self.restart_saved]}
+            else:
+                result = {'containers': [{'id': 'abc123', 'name': 'demo-web', 'state': 'exited',
+                    'policy': {'Name': 'no', 'MaximumRetryCount': 0}, 'managed_by_swarm': False}]}
         elif '/analysis?' in url:
             if self.busy:
                 raise HTTPError(url,409,'',{},io.BytesIO(b'{"message":"Another analysis is running. Your request was not saved."}'))
@@ -57,6 +67,17 @@ class DashboardTests(unittest.TestCase):
             self.assertFalse(app.exception)
             self.assertEqual([x.label for x in app.text_input],['Username','Password'])
             self.assertTrue(any(url.endswith('/logout') for _,url in self.calls))
+
+    def test_restart_checkbox_only_writes_on_save(self):
+        with patch('urllib.request.urlopen', side_effect=self.request):
+            app = self.app().run()
+            self.assertFalse(app.exception)
+            app.checkbox(key='restart_enabled:1:abc123').check().run()
+            self.assertEqual(self.restart_saved, [])
+            next(button for button in app.button if button.label == 'Save').click().run()
+            self.assertFalse(app.exception)
+            self.assertTrue(self.restart_saved[0]['enabled'])
+            self.assertTrue(any('saved' in message.value for message in app.success))
 
     def test_refresh_does_not_analyze_and_click_does(self):
         with patch('urllib.request.urlopen',side_effect=self.request):

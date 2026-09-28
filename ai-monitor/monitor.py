@@ -71,6 +71,9 @@ def collect_report(config, get, now=None):
                 "state": state["Status"],
                 "health": state.get("Health", {}).get("Status", "not configured"),
                 "restart_count": details.get("RestartCount", 0),
+                "restart_policy": details.get("HostConfig", {}).get("RestartPolicy"),
+                "started_at": state.get("StartedAt"),
+                "finished_at": state.get("FinishedAt"),
                 "oom_killed": state.get("OOMKilled", False),
                 "exit_code": state.get("ExitCode") if state["Status"] in ("exited", "dead") else None,
             })

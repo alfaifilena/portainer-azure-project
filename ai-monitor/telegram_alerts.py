@@ -32,7 +32,7 @@ class TelegramAlerts:
         identity = fingerprint([eid, container['id'], finding['rule'], finding.get('facts', {})])
         evidence = redact((finding.get('evidence') or ['No evidence supplied'])[0])[:400]
         message = '\n'.join([
-            'Container Hub — Rule alert',
+            'Container Hub — Lifecycle alert' if finding['rule'] in ('container_stopped', 'container_returned') else 'Container Hub — Rule alert',
             'Environment: ' + redact(environment_name)[:100],
             'Container: ' + redact(container['name'])[:100],
             'Observed: ' + redact(finding['category'])[:150],

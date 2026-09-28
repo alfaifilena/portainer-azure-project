@@ -11,6 +11,7 @@ from portainer import Portainer
 from settings import load_settings
 from storage import Store
 from telegram_alerts import TelegramAlerts
+from lifecycle import observe as observe_lifecycle
 
 
 def utcnow():
@@ -95,6 +96,11 @@ class MonitorService:
 
                 for container in report["containers"]:
                     cid = container["id"]
+                    try:
+                        observe_lifecycle(self.store, self.telegram, eid, env["Name"], container, now)
+                    except Exception:
+                        self.store.put("telegram_status", {"status": "unavailable",
+                            "message": "Lifecycle notification failed; monitoring continues."})
 
                     for finding in container.get("findings") or []:
                         self.store.notice(

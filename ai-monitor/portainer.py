@@ -1,6 +1,7 @@
 """Server-side Portainer client. User reads NEVER fall back to service credentials."""
 import base64
 import json
+import re
 import ssl
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -31,7 +32,11 @@ class Portainer:
         data = None
         if body is not None:
             if path != "/api/auth":
-                raise ValueError("Only authentication may use POST.")
+                if (not jwt or service or not re.fullmatch(
+                        r"/api/endpoints/[1-9][0-9]*/docker/containers/[a-f0-9]{64}/update", path)
+                        or set(body) != {"RestartPolicy"}):
+                    raise ValueError("Only authenticated restart policy updates may use POST.")
+                self.validate_restart_policy(body["RestartPolicy"])
             headers["Content-Type"] = "application/json"
             data = json.dumps(body).encode()
         with urlopen(Request(self.base + path, headers=headers, data=data),
@@ -70,4 +75,30 @@ class Portainer:
         if not isinstance(result, list):
             raise ValueError("Invalid container response.")
         return result
+
+    @staticmethod
+    def validate_restart_policy(policy):
+        if not isinstance(policy, dict) or set(policy) != {"Name", "MaximumRetryCount"}:
+            raise ValueError("Invalid restart policy.")
+        name, retries = policy["Name"], policy["MaximumRetryCount"]
+        if (not isinstance(name, str) or name not in ("no", "unless-stopped", "always", "on-failure")
+                or type(retries) is not int or not 0 <= retries <= 2147483647
+                or (name != "on-failure" and retries != 0)):
+            raise ValueError("Invalid restart policy.")
+
+    def restart_settings(self, environment, cid, *, jwt):
+        if type(environment) is not int or environment < 1 or not re.fullmatch(r"[a-f0-9]{64}", cid):
+            raise ValueError("Invalid container identifier.")
+        details = self.json(f"/api/endpoints/{environment}/docker/containers/{cid}/json", jwt=jwt)
+        policy = details["HostConfig"]["RestartPolicy"]
+        return {"policy": {"Name": policy.get("Name") or "no",
+                           "MaximumRetryCount": policy.get("MaximumRetryCount", 0)},
+                "state": details["State"]["Status"],
+                "managed_by_swarm": bool((details.get("Config", {}).get("Labels") or {}).get("com.docker.swarm.service.id"))}
+
+    def update_restart_policy(self, environment, cid, policy, *, jwt):
+        self.validate_restart_policy(policy)
+        # request() restricts this write to a full container ID and user credentials.
+        return self.json(f"/api/endpoints/{environment}/docker/containers/{cid}/update",
+                         jwt=jwt, body={"RestartPolicy": policy})
 
