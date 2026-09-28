@@ -184,3 +184,17 @@ The monitoring system uses SQLite for runtime persistence. The database is creat
 - Environment-specific values must be configured before deployment.
 - The current automatic recovery mechanism is designed for a single Docker host and does not provide multi-host automatic failover.
 - Backups stored on the same Azure Managed Disk support recovery but are not a replacement for an independent external backup.
+
+---
+
+## License
+
+Copyright © 2026 Container Hub — Group 01.
+
+**All Rights Reserved.**
+
+The source code and project materials may not be copied, modified, distributed, published, reused, sublicensed, or incorporated into another project without prior written permission from the copyright holders.
+
+Authorized use is limited to project team members and approved reviewers for educational assessment and demonstration purposes.
+
+For full terms, see the [LICENSE](LICENSE) file.
