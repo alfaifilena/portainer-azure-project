@@ -10,5 +10,5 @@
   "ai_daily_requests": 300,
   "analysis_user_daily_requests": 10,
   "retention_days": 30,
-  "model": "openrouter/free"
+  "model": "openai/gpt-oss-20b"
 }

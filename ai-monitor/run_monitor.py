@@ -162,7 +162,7 @@ class MonitorService:
 
         job_id = None
         try:
-            key = Path(os.environ.get("OPENROUTER_KEY_FILE", "/run/secrets/openrouter_api_key"))
+            key = Path(os.environ.get("GROQ_KEY_FILE", "/run/secrets/groq_api_key"))
             if not key.is_file() or not key.read_text().strip():
                 raise AnalysisUnavailable(503, "AI is not configured.")
             # Reserve both budgets and record the running job in one transaction.

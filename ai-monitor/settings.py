@@ -13,7 +13,7 @@ def load_settings():
     config.setdefault("poll_seconds", 30)
     config.setdefault("ai_daily_requests", 100)
     config.setdefault("analysis_user_daily_requests", 10)
-    config.setdefault("model", "openrouter/free")
+    config.setdefault("model", "openai/gpt-oss-20b")
     config.setdefault("retention_days", 30)
     config["ai_enabled"] = os.environ.get("AI_ENABLED", "true").lower() == "true"
     if config["poll_seconds"] < 10:
