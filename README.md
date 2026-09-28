@@ -4,17 +4,13 @@
 
 **Container Hub** is a cloud-based container management platform built using Microsoft Azure, Portainer, Docker, Terraform, and Python.
 
-The platform provides centralized Docker container management, secure remote administration, remote environment management, persistent cloud storage, automated operational tools, continuous monitoring, notifications, and an administrator-only monitoring dashboard with optional AI-assisted analysis.
+The platform provides centralized Docker container management, secure remote administration, remote environment management, persistent cloud storage, automated operational tools, continuous monitoring, notifications, and an administrator-only AI monitoring dashboard.
 
-### System Architecture
-
-![Container Hub Architecture](docs/assets/container-hub-architecture.png)
-
-### Portainer Environment Management
+### Portainer Container Management Interface
 
 ![Portainer Environments](docs/assets/portainer-environments.png)
 
-### Administrator Monitoring Dashboard
+### AI Monitoring Dashboard
 
 ![AI Monitoring Dashboard](docs/assets/ai-dashboard.png)
 
@@ -27,11 +23,10 @@ The platform provides centralized Docker container management, secure remote adm
 - Secure HTTPS access through Nginx and Let's Encrypt
 - Microsoft Entra ID authentication for infrastructure administrators
 - Azure Point-to-Site VPN for secure SSH administration
-- Persistent Docker and Portainer data using Azure Managed Disk
-- Automated backup and restore
-- Deployment, remote deployment, health-check, and hardening scripts
+- Persistent storage using Azure Managed Disk
+- Backup, restore, deployment, health-check, and hardening scripts
 - Rule-based container monitoring
-- Administrator-only Streamlit monitoring dashboard
+- Administrator-only AI monitoring dashboard
 - Optional AI-assisted analysis using Groq
 - Telegram alerts and notifications
 - Configurable container recovery
@@ -40,7 +35,7 @@ The platform provides centralized Docker container management, secure remote adm
 
 ## 2. Requirements
 
-The following tools and services are required to deploy and operate the project:
+The following tools and services are required:
 
 - Microsoft Azure subscription
 - Docker Engine
@@ -53,40 +48,33 @@ The following tools and services are required to deploy and operate the project:
 - Nginx
 - Microsoft Entra ID
 
-The dashboard Python dependency is:
-
-```text
-streamlit==1.64.0
-```
-
-Install the Python dependency using:
+Install the dashboard dependency using:
 
 ```bash
 pip install -r dashboard/requirements.txt
+```
+
+Current Python dependency:
+
+```text
+streamlit==1.64.0
 ```
 
 ---
 
 ## 3. Installation
 
-### Clone the Repository
+Clone the repository:
 
 ```bash
 git clone https://github.com/alfaifilena/portainer-azure-project.git
 cd portainer-azure-project
 ```
 
-### Configure Terraform
-
-Navigate to the Terraform directory:
+Configure Terraform:
 
 ```bash
 cd terraform
-```
-
-Initialize Terraform:
-
-```bash
 terraform init
 ```
 
@@ -96,91 +84,68 @@ Use:
 terraform.tfvars.example
 ```
 
-as a template to create a local:
+as a template for your local:
 
 ```text
 terraform.tfvars
 ```
 
-Review the infrastructure plan:
+Then run:
 
 ```bash
 terraform plan
-```
-
-Deploy the Azure infrastructure:
-
-```bash
 terraform apply
 ```
 
-### Configure Application Settings
+Use `.env.example` as the template for application configuration.
 
-Return to the project root and use:
-
-```text
-.env.example
-```
-
-as the template for local environment configuration.
-
-Real passwords, API keys, private keys, and other secrets must not be committed to the repository.
+Do not commit real passwords, API keys, private keys, or other secrets.
 
 ---
 
 ## 4. Run the Project
 
-### Start the Main Container Hub Stack
-
-From the project root:
+Start the main Container Hub stack:
 
 ```bash
 docker compose up -d
 ```
 
-### Start the Monitoring Service
+Start the monitoring service:
 
 ```bash
 docker compose -f compose.monitor.yaml up -d --build
 ```
 
-### Start the Administrator Dashboard
+Start the administrator AI dashboard:
 
 ```bash
 docker compose -f compose.dashboard.yaml up -d --build
 ```
 
-### Verify Running Containers
+Verify running containers:
 
 ```bash
 docker ps
 ```
 
-### Verify Docker Compose Services
+Verify Docker Compose services:
 
 ```bash
 docker compose ps
 ```
 
-Portainer provides the main web interface for container and environment management.
+Portainer provides the main interface for container and environment management.
 
-The Streamlit monitoring dashboard is restricted to administrators.
+The AI monitoring dashboard is restricted to administrators.
 
 ---
 
 ## 5. API Keys & Environment Variables
 
-Environment-specific configuration must be stored outside the source code.
+Use `.env.example` as the configuration template.
 
-Use:
-
-```text
-.env.example
-```
-
-as the application configuration template.
-
-Depending on the enabled features, configuration may include:
+Configuration may include:
 
 - Portainer connection settings
 - Groq API credentials
@@ -188,7 +153,7 @@ Depending on the enabled features, configuration may include:
 - Monitoring configuration
 - Container recovery settings
 
-Terraform-specific configuration should be stored locally in:
+Terraform-specific values should be stored locally in:
 
 ```text
 terraform.tfvars
@@ -205,14 +170,7 @@ terraform.tfstate.backup
 *.tfplan
 ```
 
-Only example files such as:
-
-```text
-.env.example
-terraform.tfvars.example
-```
-
-should be included in source control.
+Only example files such as `.env.example` and `terraform.tfvars.example` should be included in source control.
 
 The monitoring system uses SQLite for runtime persistence. The database is created automatically by the monitoring service and is not included as a project dataset.
 
