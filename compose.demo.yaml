@@ -1,0 +1,22 @@
+name: container-hub-demo
+services:
+  demo-errors:
+    image: python:3.12-slim
+    container_name: monitor-demo
+    command: ["python", "-u", "/demo/app.py"]
+    restart: unless-stopped
+    user: "65534:65534"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    ports: ["127.0.0.1:18080:8080"]
+    volumes:
+      - ./demo/app.py:/demo/app.py:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: json-file
+      options: {max-size: 1m, max-file: "1"}
