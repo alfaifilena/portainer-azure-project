@@ -404,8 +404,6 @@ def restart_sidebar():
                     item.get("keep_running", False) if item.get("selection_saved") else
                     item.get("policy", {}).get("Name", "no") != "no")
         items = st.session_state[cachekey]
-        st.caption("Checked: keep running, even after a manual Stop. Selected stopped containers will also be started.")
-        st.caption("Uncheck and Save before stopping a container you want to keep off. Recovery runs each monitoring cycle (normally about 30 seconds).")
         if any(not item.get("selection_saved") for item in items if not item.get("error")):
             st.info("Press Save to activate keep-running for your selection.")
         if not items:
