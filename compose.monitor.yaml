@@ -1,0 +1,38 @@
+name: container-hub-monitor
+services:
+  ai-monitor:
+    build: ./ai-monitor
+    image: container-hub-ai-monitor:current
+    restart: unless-stopped
+    environment:
+      MONITOR_CONFIG: /config/monitor.json
+      MONITOR_DB: /data/monitor.sqlite3
+      GROQ_KEY_FILE: /run/secrets/groq_api_key
+      TELEGRAM_TOKEN_FILE: /run/secrets/telegram_bot_token
+      TELEGRAM_CHAT_FILE: /run/secrets/telegram_chat_id
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    volumes:
+      - ./ai-monitor/config.docker.json:/config/monitor.json:ro
+      - /srv/portainer-data/config/secrets/portainer_api_token:/run/secrets/portainer_api_token:ro
+      - /srv/portainer-data/config/secrets/groq_api_key:/run/secrets/groq_api_key:ro
+      - /srv/portainer-data/config/secrets/portainer.crt:/run/secrets/portainer.crt:ro
+      - /srv/portainer-data/config/secrets/telegram_bot_token:/run/secrets/telegram_bot_token:ro
+      - /srv/portainer-data/config/secrets/telegram_chat_id:/run/secrets/telegram_chat_id:ro
+      - /srv/portainer-data/ai-monitor:/data
+    networks: [monitor, portainer]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/health',timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: json-file
+      options: {max-size: 5m, max-file: "2"}
+networks:
+  monitor:
+  portainer:
+    external: true
+    name: container-hub_default
+
