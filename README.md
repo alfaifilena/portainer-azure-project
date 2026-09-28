@@ -1,153 +1,93 @@
 ﻿# Container Hub
 
-A cloud-based container management platform built on **Microsoft Azure, Portainer, Docker, Terraform, and Python**.
+## 1. Project Summary
 
-Container Hub provides centralized container management, secure remote administration, persistent cloud storage, automated operational tools, and an administrator-only monitoring dashboard with optional AI-assisted analysis.
+**Container Hub** is a cloud-based container management platform built using Microsoft Azure, Portainer, Docker, Terraform, and Python.
 
----
+The platform provides centralized Docker container management, secure remote administration, remote environment management, persistent cloud storage, automated operational tools, continuous monitoring, notifications, and an administrator-only monitoring dashboard with optional AI-assisted analysis.
 
-## Architecture
+### System Architecture
 
 ![Container Hub Architecture](docs/assets/container-hub-architecture.png)
 
----
+### Portainer Environment Management
 
-## Key Features
+![Portainer Environments](docs/assets/portainer-environments.png)
 
-- Centralized Docker container management using **Portainer CE**
-- Cloud infrastructure hosted on **Microsoft Azure**
-- Infrastructure provisioning using **Terraform**
-- Secure HTTPS access through **Nginx** and **Let's Encrypt**
-- Infrastructure administrator authentication using **Microsoft Entra ID**
-- Secure SSH administration through **Azure Point-to-Site VPN**
-- Remote Docker host management using **Portainer Edge Agent**
-- Persistent Docker and Portainer data using an **Azure Managed Disk**
-- Backup, restore, deployment, health-check, and hardening scripts
-- Administrator-only monitoring dashboard built with **Streamlit**
-- Rule-based container monitoring and notifications
-- Optional AI-assisted incident analysis using **Groq**
+### Administrator Monitoring Dashboard
+
+![AI Monitoring Dashboard](docs/assets/ai-dashboard.png)
+
+### Main Capabilities
+
+- Centralized Docker container management using Portainer CE
+- Remote Docker environment management using Portainer Edge Agent
+- Microsoft Azure cloud infrastructure
+- Infrastructure provisioning using Terraform
+- Secure HTTPS access through Nginx and Let's Encrypt
+- Microsoft Entra ID authentication for infrastructure administrators
+- Azure Point-to-Site VPN for secure SSH administration
+- Persistent Docker and Portainer data using Azure Managed Disk
+- Automated backup and restore
+- Deployment, remote deployment, health-check, and hardening scripts
+- Rule-based container monitoring
+- Administrator-only Streamlit monitoring dashboard
+- Optional AI-assisted analysis using Groq
 - Telegram alerts and notifications
-- Configurable keep-running container recovery
+- Configurable container recovery
 
 ---
 
-## Platform Preview
+## 2. Requirements
 
-![Portainer Environment](docs/assets/portainer-environments.png)
+The following tools and services are required to deploy and operate the project:
 
----
+- Microsoft Azure subscription
+- Docker Engine
+- Docker Compose
+- Portainer CE
+- Terraform
+- Azure CLI
+- Git
+- Python 3
+- Nginx
+- Microsoft Entra ID
 
-## Project Architecture
-
-Container Hub is deployed on an Azure Linux Virtual Machine running Docker.
-
-**Portainer CE** provides the main container management interface.  
-**Nginx** acts as the HTTPS reverse proxy, while Azure networking and security controls protect administrative access.
-
-The monitoring component runs separately and provides:
-
-- Container health monitoring
-- Rule-based issue detection
-- Operational notifications
-- Telegram alerts
-- Optional AI analysis
-- Container lifecycle tracking
-- Configurable recovery
-
-The AI Dashboard is available to **administrators only**.
-
----
-
-## Project Structure
+The dashboard Python dependency is:
 
 ```text
-portainer-azure-project/
-│
-├── ai-monitor/              # Monitoring, alerts, recovery and AI integration
-├── dashboard/               # Administrator Streamlit dashboard
-├── demo/                    # Demo application
-├── docs/                    # Documentation and architecture assets
-├── scripts/                 # Deployment and operational scripts
-├── terraform/               # Azure infrastructure as code
-│
-├── compose.yaml             # Main Container Hub stack
-├── compose.dashboard.yaml   # Dashboard service
-├── compose.monitor.yaml     # Monitoring service
-├── compose.demo.yaml        # Demo environment
-├── compose.validation.yaml  # Validation environment
-│
-├── .env.example
-└── README.md
+streamlit==1.64.0
+```
+
+Install the Python dependency using:
+
+```bash
+pip install -r dashboard/requirements.txt
 ```
 
 ---
 
-## Technology Stack
+## 3. Installation
 
-| Category | Technologies |
-|---|---|
-| Cloud | Microsoft Azure |
-| Container Management | Portainer CE |
-| Containers | Docker, Docker Compose |
-| Infrastructure as Code | Terraform |
-| Identity | Microsoft Entra ID |
-| Secure Administration | Azure Point-to-Site VPN |
-| Networking | Azure VNet, NSG |
-| Reverse Proxy | Nginx |
-| HTTPS | Let's Encrypt |
-| Backend | Python |
-| Dashboard | Streamlit |
-| Database | SQLite |
-| AI Analysis | Groq |
-| Notifications | Telegram Bot API |
-| Version Control | Git & GitHub |
-
----
-
-## Security
-
-The platform applies multiple security controls:
-
-- HTTPS-only web access
-- Nginx reverse proxy
-- Portainer management interface is not directly exposed publicly
-- Azure Network Security Group rules restrict inbound traffic
-- SSH access is restricted to the Point-to-Site VPN network
-- Microsoft Entra ID is used for infrastructure administrator authentication
-- AI Dashboard access is restricted to administrators
-- API keys and secrets are stored outside source control
-- Terraform state and local configuration files are excluded from Git
-
----
-
-## Getting Started
-
-### 1. Clone the repository
+### Clone the Repository
 
 ```bash
 git clone https://github.com/alfaifilena/portainer-azure-project.git
 cd portainer-azure-project
 ```
 
-### 2. Configure environment variables
+### Configure Terraform
 
-Use:
-
-```text
-.env.example
-```
-
-as the configuration template.
-
-Do not commit real passwords, API keys, private keys, or production credentials.
-
-### 3. Provision Azure Infrastructure
+Navigate to the Terraform directory:
 
 ```bash
 cd terraform
+```
+
+Initialize Terraform:
+
+```bash
 terraform init
-terraform plan
-terraform apply
 ```
 
 Use:
@@ -156,9 +96,41 @@ Use:
 terraform.tfvars.example
 ```
 
-as a template for local Terraform configuration.
+as a template to create a local:
 
-### 4. Start Container Hub
+```text
+terraform.tfvars
+```
+
+Review the infrastructure plan:
+
+```bash
+terraform plan
+```
+
+Deploy the Azure infrastructure:
+
+```bash
+terraform apply
+```
+
+### Configure Application Settings
+
+Return to the project root and use:
+
+```text
+.env.example
+```
+
+as the template for local environment configuration.
+
+Real passwords, API keys, private keys, and other secrets must not be committed to the repository.
+
+---
+
+## 4. Run the Project
+
+### Start the Main Container Hub Stack
 
 From the project root:
 
@@ -166,94 +138,91 @@ From the project root:
 docker compose up -d
 ```
 
-### 5. Start Monitoring
+### Start the Monitoring Service
 
 ```bash
 docker compose -f compose.monitor.yaml up -d --build
 ```
 
-### 6. Start the AI Dashboard
+### Start the Administrator Dashboard
 
 ```bash
 docker compose -f compose.dashboard.yaml up -d --build
 ```
 
-### 7. Verify Containers
+### Verify Running Containers
 
 ```bash
 docker ps
 ```
 
----
+### Verify Docker Compose Services
 
-## Operational Scripts
-
-Operational scripts are available under:
-
-```text
-scripts/
+```bash
+docker compose ps
 ```
 
-They include:
+Portainer provides the main web interface for container and environment management.
 
-- Docker installation
-- Azure managed disk setup
-- Deployment
-- Remote deployment
-- Backup
-- Restore
-- Health checks
-- System hardening
-- Groq configuration
-- Telegram configuration
+The Streamlit monitoring dashboard is restricted to administrators.
 
 ---
 
-## Persistent Storage
+## 5. API Keys & Environment Variables
 
-Container Hub uses an **Azure Managed Disk** for persistent Docker and Portainer data.
+Environment-specific configuration must be stored outside the source code.
 
-This allows application data to remain available independently of the operating system disk and supports recovery workflows.
+Use:
+
+```text
+.env.example
+```
+
+as the application configuration template.
+
+Depending on the enabled features, configuration may include:
+
+- Portainer connection settings
+- Groq API credentials
+- Telegram Bot credentials
+- Monitoring configuration
+- Container recovery settings
+
+Terraform-specific configuration should be stored locally in:
+
+```text
+terraform.tfvars
+```
+
+The following files must not be committed to Git:
+
+```text
+.env
+terraform.tfvars
+terraform.tfstate
+terraform.tfstate.backup
+.terraform/
+*.tfplan
+```
+
+Only example files such as:
+
+```text
+.env.example
+terraform.tfvars.example
+```
+
+should be included in source control.
+
+The monitoring system uses SQLite for runtime persistence. The database is created automatically by the monitoring service and is not included as a project dataset.
 
 ---
 
-## Monitoring and AI
-
-The monitoring system does **not depend on AI** for normal operation.
-
-Rule-based monitoring performs issue detection and notifications continuously.
-
-AI analysis is optional and is only performed when explicitly requested by an administrator.
-
-SQLite is used for runtime persistence of monitoring information, reports, notifications, and related operational records.
-
----
-
-## Documentation
-
-Detailed project documentation is available here:
-
-- [Container Hub Documentation](docs/container-hub.md)
-- [Container Hub Setup Guide](docs/container_hub_setup.md)
-- [Integration Log](docs/integration-log.md)
-
----
-
-## Known Limitations
+## 6. Known Issues
 
 - Some external networks may block or interfere with Portainer Edge Agent WebSocket traffic.
-- AI analysis requires internet access and valid Groq credentials.
-- Telegram alerts require valid Telegram Bot configuration.
-- Current automatic recovery is designed for a single Docker host and does not provide multi-host failover.
-- Backups stored on the same managed disk are not a replacement for an independent off-site backup.
-
----
-
-## Project
-
-**Container Hub**
-
-SDA Bootcamp Capstone Project  
-**Group 01**
-
-
+- AI-assisted analysis requires internet connectivity and valid Groq credentials.
+- Telegram notifications require valid Telegram Bot configuration.
+- Environment-specific values must be configured before deployment.
+- The current automatic recovery mechanism is designed for a single Docker host and does not provide multi-host automatic failover.
+- Backups stored on the same Azure Managed Disk support recovery but are not a replacement for an independent external backup.
