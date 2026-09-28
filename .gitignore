@@ -37,3 +37,6 @@ __pycache__/
 backups/
 *.before-edit*
 *.before-tls*
+
+# Terraform plan files
+*.tfplan
